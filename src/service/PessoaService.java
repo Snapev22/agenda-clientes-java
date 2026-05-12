@@ -1,13 +1,10 @@
 package service;
 
-import java.nio.ReadOnlyBufferException;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-
+import dao.PessoaDAO;
 import entities.Pessoa;
 import exceptions.RegraDeNegocioExcepetion;
-import dao.PessoaDAO;
 
 /**
  * A classe({@code PessoaService} fornece os serviços relacionados a manipulação de cadastros na agenda.
@@ -19,108 +16,74 @@ public class PessoaService {
 	private PessoaDAO pessoaDAO;
 		
 	/**
-	 * Construtor padrão da classe PessoaService.
-	 * Inicializa a lista de cadastro de pessoas.
+	 * Construtor padrão da classe {@code PessoaService}.
+	 * Inicializa o acesso aos dados de pessoas. .
 	 */
 	public PessoaService() {
 		this.pessoaDAO = new PessoaDAO();
 	}
 	
-	/**
-	 * Cria um novo cadastro com base nas informações definidas na classe Pessoa.
-	 * 
-	 * @param novaPessoa o objeto pessoa criado na classe principal
-	 */
 	public void cadastraPessoa(Pessoa novaPessoa) {
+		validarDadosPessoa(novaPessoa);
 		pessoaDAO.abrirCadastro(novaPessoa);
 	}
 	
+	/**
+	 * Realiza as validações das informações obrigatórias da pessoa.
+	 * <p>
+	 * Nome e telefone são obrigatórios.
+	 * A idade, quando informada, deve possuir valor positivo.
+	 * </p>
+	 *
+	 * @param p pessoa a ser validada.
+	 * @throws RegraDeNegocioExcepetion caso algum dado obrigatório seja inválido.
+	 */
+	private void validarDadosPessoa(Pessoa p) {
+		if(p.getNome() == null || p.getNome().isBlank()) {
+			throw new RegraDeNegocioExcepetion("Nome é obrigatório para o cadastro.");
+		}
+		
+		if (p.getTelefone() == null || p.getTelefone().isBlank()) {
+	        throw new RegraDeNegocioExcepetion("Telefone é obrigatório para o cadastro.");
+	    }
+		
+		if (p.getIdade() != null && p.getIdade() <= 0) {
+	        throw new RegraDeNegocioExcepetion("A idade, se informada, deve ser um número positivo.");
+	    }
+	}
+	
 	public void removerCadastro(int id) {
-		Pessoa pessoaRemover = pessoaDAO.buscaPorId(id);
-		if(pessoaRemover != null) {
-			pessoaDAO.removerPessoa(id);
-		}else {
-			throw new RegraDeNegocioExcepetion("Pessoa não encontrada com o ID: " + id);
+		int linhasAfetadas = pessoaDAO.removerPessoa(id);
+		
+		if(linhasAfetadas == 0) {
+			throw new RegraDeNegocioExcepetion("Nenhum registro encontrado com ID: " + id + " para remoção.");
 		}
 	}
 	
-	/**
-	 * Lista todas as pessoas cadastradas.
-	 *<p>
-	 * Este método retorna uma lista imutável.Não podendo ser modificada (adicionar ou remover elementos)
-	 * 
-	 * @return uma lista não modificável de todas as pessoas da agenda. 
-	 */
 	public List<Pessoa> listaCadastros() {
 		return pessoaDAO.listarTodosCadastros();
 	}
 	
-	
-	public boolean isVazia() {
-		return pessoaDAO.isVazia();
-	}
-	
-	/**
-	 * Lista todas as pessoas cadastradas filtrando pelo atributo idade
-	 * 
-	 * @param idade A idade usada como filtro para a busca.
-	 * @return uma lista de pessoas que correspondem a idade fornecida.
-	 * retorna uma lista vazia caso a agenda esteja vazia ou não encontre correspondências.
-	 */
 	public List<Pessoa> pesquisaPorIdade(int idade) {
-		
-		if (pessoaDAO.isVazia()) {
-			return Collections.emptyList();
-		}
-		
-		List<Pessoa>todas = pessoaDAO.listarTodosCadastros();
-		List<Pessoa>pEncontradas = new ArrayList<Pessoa>();
-		
-	
-		for (Pessoa pessoa : todas) {
-			if (pessoa.getIdade() == idade) {
-				pEncontradas.add(pessoa);
-			}
-		}
-		return pEncontradas; 
+		return pessoaDAO.listarPorIdade(idade); 
 	}
 	
-	/**
-	 * Lista todas as pessoas cadastradas, ordenadas alfabeticamente pelo atributo nome.
-	 * <p>
-	 * Retorna uma cópia ordenada, não alterando a ordem da lista interna agenda.
-	 * A lista retornada é imutável.
-	 * 
-	 * @return uma lista não modificavel de pessoas, ordenada por nome.
-	 */
 	public List<Pessoa> cadastrosEmOrdemAlfabetica() {
-		List<Pessoa> agendaOrdenada = new ArrayList<Pessoa>(pessoaDAO.listarTodosCadastros());
-		
-		Collections.sort(agendaOrdenada);
-		
-		return  Collections.unmodifiableList(agendaOrdenada);
+		return  pessoaDAO.listarEmOrdemAlfabetica();
 	}
 	
-	/**
-	 * Retorna  um cadastro com base no ID da conta fornecido.
-	 * 
-	 * @param id o ID do cadastro a ser pesquisado
-	 * @return o cadastro correspondente ao ID fornecido.
-	 */
+
 	public Pessoa buscaPorID(int id) {
-		
-		Pessoa pessoa = pessoaDAO.buscaPorId(id);
-		if(pessoa == null) throw new RegraDeNegocioExcepetion("Erro: Pessoa não encontrada com o ID " + id);
-		
-		return pessoa;
-		
+		return pessoaDAO.buscaPorId(id)
+				.orElseThrow(() -> new RegraDeNegocioExcepetion("Pessoa não encontrada."));
 	}
 	
 	public void alteraCadastros(Pessoa pessoaAlterar) {
-		if(pessoaAlterar == null)throw new RegraDeNegocioExcepetion("Erro: pessoa não pode ser nula");
-		
+		if(pessoaAlterar == null)throw new RegraDeNegocioExcepetion("Pessoa não pode ser nula");
+		validarDadosPessoa(pessoaAlterar);
 		pessoaDAO.alteraPessoa(pessoaAlterar);
 	}
+	
 	/**
 	 * Retorna uma sublista (página) de pessoas a partir de uma lista completa.
 	 * * @param pessoas  A lista completa de pessoas a ser paginada.
