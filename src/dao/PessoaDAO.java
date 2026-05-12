@@ -7,8 +7,10 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
 import entities.Pessoa;
+import exceptions.RegraDeNegocioExcepetion;
 
 /**
  * A classe {@code PessoaDAO} é responável por métodos correspondentes as operações de CRUD no banco de dados relacionado
@@ -31,11 +33,7 @@ public class PessoaDAO {
 		this.conexaoDb = new ConexaoDb();
 	}
 	
-	/**
-	 * Abre novo cadastro no banco de dados.
-	 * * @param pessoa O objeto {@code Pessoa} a ser cadastrado.
-	 * @throws RuntimeException se ocorrer um erro de SQL durante o cadastro.
-	 */
+	
 	public void abrirCadastro(Pessoa pessoa) {
 		String sqlQuery = "INSERT INTO pessoas (nome, endereco, telefone, idade)" +
 	                       "VALUES (?, ?, ?, ?)";
@@ -46,66 +44,82 @@ public class PessoaDAO {
 			ps.setString(1, pessoa.getNome());
 			ps.setString(2, pessoa.getEndereco());
 			ps.setString(3, pessoa.getTelefone());
-			ps.setInt(4, pessoa.getIdade());
+			ps.setObject(4, pessoa.getIdade(), java.sql.Types.INTEGER);
 			ps.execute();
-			
 		}catch (SQLException e) {
 			throw new RuntimeException("Erro ao cadastrar pessoa", e);
 		}			
 	}
 	
 	/**
-	 * Retorna todos os cadastros de pessoas no banco de dados.
-	 * <p>
-	 * * @return uma lista imutável de objetos {@code Pessoa}.
-	 * @throws RuntimeException se ocorrer um erro de SQL durante a listagem.
+	 * Retorna uma lista de pessoas ordenada conforme o critério informado.
+	 *
+	 * @param criterio coluna utilizada para ordenação.
+	 * @return uma lista imutável de pessoas ordenadas.
+	 * @throws RegraDeNegocioExcepetion caso o critério informado não seja permitido.
+	 * @throws RuntimeException caso ocorra erro durante a consulta SQL.
 	 */
-	public List<Pessoa> listarTodosCadastros(){
+	private List<Pessoa> listarComOrdenacao(String criterio){
+		List<String> colunasValidas = List.of("id", "nome", "idade", "telefone");
 		
+		if(!colunasValidas.contains(criterio.toLowerCase().trim())) {
+			throw new RegraDeNegocioExcepetion("Tentativa de ordenação por campo inválido ou não permitido.");
+		}
 		List<Pessoa> cadastros = new ArrayList<Pessoa>();
-		String sqlQuery = """
+		String sqlQuery = String.format("""
 				SELECT id, nome, endereco, telefone, idade
 				FROM  pessoas
-				ORDER BY id ASC """;
+				ORDER BY %s
+				""", criterio.trim());
 		
 		try(Connection connection = conexaoDb.recuperaConexao();
 			PreparedStatement ps = connection.prepareStatement(sqlQuery);
 			ResultSet rs = ps.executeQuery()){
 			
 			while(rs.next()) {
-				int id = rs.getInt("id");
-				String nome = rs.getString("nome");
-				String endereco = rs.getString("endereco");
-				String telefone = rs.getString("telefone");
-				int idade = rs.getInt("idade");
-				
-				if(endereco == null || endereco.isBlank()) {
-					endereco = "não informado";
-				}
-				
-				if(telefone == null || telefone.isBlank()) {
-					telefone = "não informado";
-				}
-				
-				Pessoa p = new Pessoa(id, nome, endereco, telefone, idade);
-				cadastros.add(p);
+				 cadastros.add(mapearPessoa(rs));
 			}
 			
 		}catch (SQLException e) {
 			throw new RuntimeException("Erro ao listar pessoas", e);
 		}
 		return  Collections.unmodifiableList(cadastros);
-		
 	}
 	
-	/**
-	 * Busca uma pessoa no banco de dados utilizando o ID de cadastro fornecido.
-	 * 
-	 * * @param id O ID da pessoa a ser buscada.
-	 * @return O objeto {@code Pessoa} correspondente ao ID, ou {@code null} se não for encontrado.
-	 * @throws RuntimeException se ocorrer um erro de SQL durante a busca.
-	 */
-	public Pessoa buscaPorId(int id) {
+	
+	public List<Pessoa> listarTodosCadastros(){
+		return listarComOrdenacao("id");
+	}
+	
+	
+	public List<Pessoa> listarEmOrdemAlfabetica(){
+		return listarComOrdenacao("nome");
+	}
+	
+	
+	public List<Pessoa> listarPorIdade(int idade){
+		List<Pessoa> encontrados = new ArrayList<>(); 
+		String sql = """
+				SELECT id, nome, endereco, telefone, idade
+				FROM  pessoas
+				WHERE idade = ?
+				""";
+		try(Connection connection = conexaoDb.recuperaConexao();
+			PreparedStatement ps = connection.prepareStatement(sql)){
+			
+			ps.setInt(1, idade);
+			try(ResultSet rs = ps.executeQuery()){
+				while(rs.next()) {
+					encontrados.add(mapearPessoa(rs));
+				}
+			}
+		} catch (SQLException e) {
+			throw new RuntimeException("Erro ao ' pessoas por idade.",e);
+		}
+		return Collections.unmodifiableList(encontrados);
+	}
+	
+	public Optional<Pessoa> buscaPorId(Integer id) {
 		String sqlQuery = """ 
 				SELECT id, nome, endereco, telefone, idade		
 				FROM pessoas
@@ -117,21 +131,14 @@ public class PessoaDAO {
 			ps.setInt(1, id);
 			try(ResultSet rs = ps.executeQuery()){
 				if(rs.next()) {
-					int pessoaId = rs.getInt("id");
-					String nome = rs.getString("nome");
-					String endereco = rs.getString("endereco");
-					String telefone = rs.getString("telefone");
-					int idade = rs.getInt("idade");
-					
-					return new Pessoa(pessoaId, nome, endereco, telefone, idade);
-				}
-				else {
-					return null;
+					Pessoa p = mapearPessoa(rs);
+					return Optional.of(p);
 				}
 			}
 		} catch (SQLException e) {
 			throw new RuntimeException("Erro ao buscar pessoa com id: " + id, e);
-		}		
+		}
+		return Optional.empty();
 	}
 	
 	/**
@@ -153,7 +160,7 @@ public class PessoaDAO {
 			ps.setString(1, pessoa.getNome());
 			ps.setString(2, pessoa.getEndereco());
 			ps.setString(3, pessoa.getTelefone());
-			ps.setInt(4, pessoa.getIdade());
+			ps.setObject(4, pessoa.getIdade(), java.sql.Types.INTEGER);
 			ps.setInt(5, pessoa.getId());
 			
 			ps.executeUpdate();
@@ -162,50 +169,33 @@ public class PessoaDAO {
 		}
 	}
 	
-	/**
-	 * Remove uma pessoa do banco de dados com base no ID fornecido.
-	 * @param id o ID da pessoa a ser removida.
-	 * @throws RuntimeException se ocorrer um erro de SQL durante a remoção.
-	 */
-	public void removerPessoa(int id) {
+	public int  removerPessoa(int id) {
 		String sqlQuery = "DELETE FROM pessoas WHERE id = ?";
 		
-		try(Connection connection = conexaoDb.recuperaConexao();
+		try(Connection connection =  conexaoDb.recuperaConexao();
 			PreparedStatement ps = connection.prepareStatement(sqlQuery)){
 			
 			ps.setInt(1, id);
-			ps.execute();
-			
+			return  ps.executeUpdate();
 		}catch (SQLException e) {
 			throw new RuntimeException("Erro ao remover pessoa", e);
 		}
 	}
+	
 	/**
-	 * Verifica se a tabela de pessoas no banco de dados está vazia.
-	 * * @return {@code true} se a tabela não tiver registros, {@code false} caso contrário.
-	 * @throws RuntimeException se ocorrer um erro de SQL durante a verificação.
+	 * Converte um registro do {@code ResultSet} em um objeto {@code Pessoa}.
+	 *
+	 * @param rs resultado da consulta SQL posicionado em uma linha válida.
+	 * @return um objeto {@code Pessoa} preenchido com os dados do banco.
+	 * @throws SQLException caso ocorra erro ao acessar os dados do ResultSet.
 	 */
-	public  boolean isVazia() {
-		String sqlQuery = "SELECT COUNT(*) FROM pessoas";
-		
-		try(Connection connection = conexaoDb.recuperaConexao();
-			PreparedStatement ps = connection.prepareStatement(sqlQuery);
-			ResultSet rs = ps.executeQuery()){
-			
-			if(rs.next()) {
-				return rs.getInt(1) == 0;
-			}
-		}catch (SQLException e) {
-			throw new RuntimeException("Erro  ao verificar se a agenda esta vázia", e);
-		}
-		
-		return true;
+	private static Pessoa mapearPessoa(ResultSet rs) throws SQLException {
+		return  Pessoa.builder()
+				.id(rs.getInt("id"))
+				.nome(rs.getString("nome"))
+				.endereco(rs.getString("endereco"))
+				.telefone(rs.getString("telefone"))
+				.idade(rs.getObject("idade", Integer.class))
+				.build();
 	}
 }
-
-
-
-
-
-
-
