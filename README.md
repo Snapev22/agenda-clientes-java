@@ -1,24 +1,49 @@
-# 📚 Agenda CRUD em Java com Persistência MySQL
+# Agenda CRUD em Java
 
-Este é um sistema de **Agenda CRUD** construído em **Java**, que utiliza a **API JDBC** para persistência de dados em um banco de dados **MySQL**. É um demonstrativo prático da comunicação entre a aplicação e o banco de dados.
+Sistema que simula uma agenda de clientes, desenvolvido com o objetivo de praticar conceitos fundamentais do desenvolvimento backend com Java.
 
-### 💡 O que este projeto demonstra:
+O projeto foi utilizado para treinar organização em camadas, persistência de dados, refatoração de código, tratamento de exceções e boas práticas de desenvolvimento.
 
-* **Persistência de Dados:** Uso de **JDBC** para realizar operações CRUD diretamente no banco de dados **MySQL**.
-* **Boas Práticas:** Implementação de um **padrão em camadas** (Service e DAO) para separar a lógica de negócio do acesso a dados.
-* **Tratamento de Erros:** Validação de regras de negócio (`RegraDeNegocioExcepetion`) para garantir a integridade dos dados.
-* **Funcionalidades:** Cadastro, busca, alteração, remoção e filtros por idade e ordenação alfabética.
+## Objetivos do Projeto
 
-### 🛠️ Tecnologias Chave
+- Praticar persistência de dados utilizando JDBC
+- Aplicar arquitetura em camadas
+- Exercitar modelagem de entidades
+- Trabalhar tratamento de exceções e validações
+- Desenvolver organização, legibilidade e manutenção de código
+- Utilizar recursos modernos da linguagem Java
+  
+## Tecnologias e conceitos utilizados
 
-* **Linguagem:** Java
-* **Banco de Dados:** MySQL
-* **Conexão:** JDBC
-* **Extra:** Configuração para **HikariCP** (Pool de Conexões).
+- Java
+- JDBC
+- MySQL
+- HikariCP
+- Lombok
+- Arquitetura em camadas (`main`, `service`, `dao`, `entities`)
+- Padrão DAO
+- Tratamento de exceções customizadas
+- Builder Pattern
+- Optional
+- Collections imutáveis
+- Paginação de resultados
 
-### 🔩 Estrutura do Banco de Dados (Tabela `pessoas`)
+## Funcionalidades
 
-Para rodar o projeto, utilize a seguinte estrutura básica para a tabela `pessoas` no seu MySQL:
+- Cadastro de pessoas
+- Alteração de cadastro
+- Remoção de cadastro
+- Busca por ID
+- Filtro por idade
+- Ordenação alfabética
+- Paginação de resultados via `JOptionPane`
+
+## Como executar
+
+1. Configure o banco de dados MySQL.
+2. Crie a tabela `pessoas`.
+3. Ajuste as credenciais de conexão em `ConexaoDb.java`.
+4. Execute a classe `AgendaApplication`.
 
 ```sql
 CREATE TABLE pessoas (
@@ -26,12 +51,5 @@ CREATE TABLE pessoas (
     nome VARCHAR(100) NOT NULL,
     endereco VARCHAR(255),
     telefone VARCHAR(20),
-    idade INT NOT NULL
+    idade INT
 );
-
-### 🚀 Como Rodar
-
-1.  Clone o repositório.
-2.  Configure o schema `agenda_db` e a tabela `pessoas` no MySQL.
-3.  Ajuste as credenciais de acesso no arquivo `dao/ConexaoDb.java`.
-4.  Execute a classe `main.AgendaTest01.java` para iniciar o menu via `JOptionPane`.
