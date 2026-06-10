@@ -6,13 +6,9 @@ package exceptions;
  * Lança unchecked exception. Usada pra capturar falhas que violam
  * as regras de negócio da aplicação, como entrada de dados inválidos. 
  */
-public class RegraDeNegocioExcepetion extends RuntimeException {
+public class RegraDeNegocioException extends RuntimeException {
 	
-	/**
-	 * Lança a exceção
-	 * @param mensagem Mensagem de erro
-	 */
-	public RegraDeNegocioExcepetion(String mensagem) {
+	public RegraDeNegocioException(String mensagem) {
 		super(mensagem);
 	}
 }
