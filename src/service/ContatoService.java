@@ -2,103 +2,95 @@ package service;
 
 import java.util.Collections;
 import java.util.List;
-import dao.PessoaDAO;
-import entities.Pessoa;
-import exceptions.RegraDeNegocioExcepetion;
+
+import dao.ContatoDAO;
+import entities.Contato;
+import entities.PessoaFisica;
+import exceptions.RegraDeNegocioException;
 
 /**
- * A classe({@code PessoaService} fornece os serviços relacionados a manipulação de cadastros na agenda.
- * Ela permite criar cadastro, listar, ordernar alfabeticamente, listar com filto de idade, e remoção de cadastro.
- * <p> 
+ * A classe {@code ContatoService} fornece os serviços relacionados à manipulação
+ * de cadastros na agenda de clientes.
+ * <p>
+ * Delega a validação para cada entidade via interface {@link interfaces.Validavel},
+ * eliminando a necessidade de validações acopladas nesta camada.
+ * </p>
  */
-public class PessoaService {
+public class ContatoService {
 	
-	private PessoaDAO pessoaDAO;
+	private ContatoDAO contatoDAO;
 		
-	/**
-	 * Construtor padrão da classe {@code PessoaService}.
-	 * Inicializa o acesso aos dados de pessoas. .
-	 */
-	public PessoaService() {
-		this.pessoaDAO = new PessoaDAO();
+    /**
+     * Construtor padrão. Inicializa o acesso aos dados de contatos.
+     */
+	public ContatoService() {
+		this.contatoDAO = new ContatoDAO();
 	}
 	
-	public void cadastraPessoa(Pessoa novaPessoa) {
-		validarDadosPessoa(novaPessoa);
-		pessoaDAO.abrirCadastro(novaPessoa);
+	public void cadastrarContato(Contato novoContato) {
+		novoContato.validar();
+		contatoDAO.abrirCadastro(novoContato);
 	}
-	
-	/**
-	 * Realiza as validações das informações obrigatórias da pessoa.
-	 * <p>
-	 * Nome e telefone são obrigatórios.
-	 * A idade, quando informada, deve possuir valor positivo.
-	 * </p>
-	 *
-	 * @param p pessoa a ser validada.
-	 * @throws RegraDeNegocioExcepetion caso algum dado obrigatório seja inválido.
-	 */
-	private void validarDadosPessoa(Pessoa p) {
-		if(p.getNome() == null || p.getNome().isBlank()) {
-			throw new RegraDeNegocioExcepetion("Nome é obrigatório para o cadastro.");
-		}
 		
-		if (p.getTelefone() == null || p.getTelefone().isBlank()) {
-	        throw new RegraDeNegocioExcepetion("Telefone é obrigatório para o cadastro.");
-	    }
-		
-		if (p.getIdade() != null && p.getIdade() <= 0) {
-	        throw new RegraDeNegocioExcepetion("A idade, se informada, deve ser um número positivo.");
-	    }
-	}
-	
 	public void removerCadastro(int id) {
-		int linhasAfetadas = pessoaDAO.removerPessoa(id);
-		
+		int linhasAfetadas = contatoDAO.removerContato(id);	
 		if(linhasAfetadas == 0) {
-			throw new RegraDeNegocioExcepetion("Nenhum registro encontrado com ID: " + id + " para remoção.");
+			throw new RegraDeNegocioException("Nenhum registro encontrado com ID: " + id + " para remoção.");
 		}
 	}
 	
-	public List<Pessoa> listaCadastros() {
-		return pessoaDAO.listarTodosCadastros();
+	public List<Contato> listaCadastros() {
+		return contatoDAO.listarTodosCadastros();
 	}
 	
-	public List<Pessoa> pesquisaPorIdade(int idade) {
-		return pessoaDAO.listarPorIdade(idade); 
+	public List<Contato> pesquisaPorIdade(Integer idade) {
+		return contatoDAO.listarTodosCadastros()
+	            .stream()
+	            .filter(PessoaFisica.class::isInstance)
+	            .map(PessoaFisica.class::cast)
+	            .filter(pf -> pf.getIdade() != null)
+	            .filter(pf -> pf.getIdade().equals(idade))
+	            .map(pf -> (Contato) pf)
+	            .toList();
 	}
 	
-	public List<Pessoa> cadastrosEmOrdemAlfabetica() {
-		return  pessoaDAO.listarEmOrdemAlfabetica();
+	public List<Contato> cadastrosEmOrdemAlfabetica() {
+		return  contatoDAO.listarEmOrdemAlfabetica();
 	}
 	
-
-	public Pessoa buscaPorID(int id) {
-		return pessoaDAO.buscaPorId(id)
-				.orElseThrow(() -> new RegraDeNegocioExcepetion("Pessoa não encontrada."));
+	public Contato buscar(int id) {
+		return contatoDAO.buscaPorId(id)
+				.orElseThrow(() -> new RegraDeNegocioException("Pessoa não encontrada."));
 	}
 	
-	public void alteraCadastros(Pessoa pessoaAlterar) {
-		if(pessoaAlterar == null)throw new RegraDeNegocioExcepetion("Pessoa não pode ser nula");
-		validarDadosPessoa(pessoaAlterar);
-		pessoaDAO.alteraPessoa(pessoaAlterar);
+    public List<Contato> buscar(String nome) {
+        if (nome == null || nome.isBlank()) {
+            throw new RegraDeNegocioException("O nome para busca não pode ser vazio.");
+        }
+        return contatoDAO.buscarPorNome(nome);
+    }
+	
+	public void alteraCadastros(Contato contatoAlterar) {
+		if(contatoAlterar == null)throw new RegraDeNegocioException("Pessoa não pode ser nula");
+		contatoAlterar.validar();
+		contatoDAO.alteraContato(contatoAlterar);
 	}
 	
 	/**
-	 * Retorna uma sublista (página) de pessoas a partir de uma lista completa.
-	 * * @param pessoas  A lista completa de pessoas a ser paginada.
-	 * @param numeroPagina   O número da página que se deseja obter (começando de 1).
-	 * @param tamanhoPagina  O número máximo de pessoas por página.
-	 * @return  Uma lista imutável contendo as pessoas da página solicitada. 
-	 * Retorna uma lista vazia caso o número da página seja inválido ou 
-	 * a lista de entrada esteja vazia.
-	 */
-	public List<Pessoa> getPagina(List<Pessoa> pessoas, int numeroPagina, int tamanhoPagina){
+     * Retorna uma sublista (página) de contatos a partir de uma lista completa.
+     *
+     * @param itens lista completa de contatos a ser paginada.
+     * @param numeroPagina  número da página desejada (começa em 1).
+     * @param tamanhoPagina quantidade máxima de contatos por página.
+     * @return lista imutável com os contatos da página solicitada,
+     *         ou lista vazia se o número de página for inválido.
+     */
+	public List<Contato> getPagina(List<Contato> itens, int numeroPagina, int tamanhoPagina){
 		int inicio = (numeroPagina - 1) * tamanhoPagina;
-		int fim = Math.min(inicio + tamanhoPagina, pessoas.size());
+		int fim = Math.min(inicio + tamanhoPagina, itens.size());
 		
-		if(inicio >= pessoas.size() || inicio < 0) return Collections.emptyList();
+		if(inicio >= itens.size() || inicio < 0) return Collections.emptyList();
 		
-		return pessoas.subList(inicio, fim);
+		return List.copyOf(itens.subList(inicio, fim));
 	}
 }
